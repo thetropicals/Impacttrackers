@@ -1,0 +1,101 @@
+#include "Wire.h"
+#define sensorAnalog A1
+#include <SoftwareSerial.h>
+#include <TinyGPSPlus.h>
+#include <MPU6050_light.h>
+#define FORCE_SENSOR_PIN A0
+
+SoftwareSerial ss(2, 3);  // RX, TX pins (connect TX of NEO-6M to pin 2)
+TinyGPSPlus gps;
+MPU6050 mpu(Wire);
+
+// Declare global variables
+double lat1 = 0.0, longt1 = 0.0, lat2 = 0.0, longt2 = 0.0;
+int day, month, year, secondy, minute, hour;
+float speed_kmph = 0.0;
+unsigned long previousTime = 0, gpsUpdateTime = 0, mpuUpdateTime = 0;
+
+void setup() {
+  Wire.begin();
+  Serial.begin(9600);   // Main Serial for ESP32 communication
+  ss.begin(9600);       // GPS Serial
+  mpu.begin();
+  mpu.calcGyroOffsets(); // Calibrate MPU6050
+  
+  Serial.println("Arduino ready to send data to ESP32.");
+}
+
+void loop() {
+  // Update GPS data every 500 ms
+  int analogReading = analogRead(FORCE_SENSOR_PIN);
+  
+  if (millis() - gpsUpdateTime > 500) {
+    gpsUpdateTime = millis();
+    while (ss.available() > 0) {
+      gps.encode(ss.read());
+      if (gps.location.isUpdated()) {
+        lat1 = gps.location.lat();
+        longt1 = gps.location.lng();
+
+        // Calculate speed if location has changed
+        speed_kmph = (lat1 != lat2 || longt1 != longt2) ? gps.speed.kmph() : 0.0;
+
+        day = gps.date.day();
+        month = gps.date.month();
+        year = gps.date.year();
+
+        // Convert UTC to IST (GMT+5:30)
+        hour = gps.time.hour() + 5;
+        minute = gps.time.minute() + 30;
+        secondy = gps.time.second();
+        if (minute >= 60) {
+          minute -= 60;
+          hour++;
+        }
+        if (hour >= 24) {
+          hour -= 24;
+        }
+
+        lat2 = lat1;
+        longt2 = longt1;
+      }
+    }
+  }
+
+  // Update MPU6050 data every 10 ms
+  if (millis() - mpuUpdateTime > 10) {
+    mpuUpdateTime = millis();
+    mpu.update();
+  }
+
+  // Send data to ESP32 every 10 ms
+  if (millis() - previousTime >= 10) {
+    previousTime = millis();
+
+    int analogValue = analogRead(sensorAnalog); // Read analog sensor
+
+    // Send data to ESP32 in CSV format
+    Serial.print(lat1, 6);           // Latitude with 6 decimal places
+    Serial.print(",");
+    Serial.print(longt1, 6);         // Longitude with 6 decimal places
+    Serial.print(",");
+    Serial.print(minute);
+    Serial.print(",");
+    Serial.print(hour);
+    Serial.print(",");
+    Serial.print(secondy);
+    Serial.print(",");
+    Serial.print(speed_kmph);
+    Serial.print(",");
+    Serial.print(mpu.getAngleZ());
+    Serial.print(",");
+    Serial.print(analogValue);
+    Serial.print(",");
+    if (analogReading < 200) 
+    Serial.println(1);
+    else{
+    Serial.println(0);
+  }
+     // Send Z-axis angle
+  }
+}
