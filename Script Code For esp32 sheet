@@ -1,0 +1,55 @@
+function doPost(e) {
+  // Open the Google Sheet by its ID and get the active sheet
+  const sheet = SpreadsheetApp.openById("1htUuLYEzHG7yesX4VEYwII6x9fCpbTxtyeVnQe-k9Xk").getActiveSheet();
+
+  // Ensure the sheet doesn't have unnecessary columns beyond the expected range
+  const expectedColumns = 8; // Adjust based on the number of expected columns (1 timestamp + 7 data fields)
+  const lastColumn = sheet.getLastColumn();
+  if (lastColumn > expectedColumns) {
+    sheet.deleteColumns(expectedColumns + 1, lastColumn - expectedColumns);
+  }
+
+  let data;
+  try {
+    // Parse incoming JSON data
+    data = JSON.parse(e.postData.contents);
+  } catch (error) {
+    console.error("Failed to parse JSON: " + error);
+    return ContentService.createTextOutput("Error: Invalid JSON").setMimeType(ContentService.MimeType.TEXT);
+  }
+
+  // Validate and sanitize data from the ESP32
+  const latitude = data.latitude  0;    // Default to 0 if undefined
+  const longitude = data.longitude  0;  // Default to 0 if undefined
+  const speed = data.speed  0;          // Default to 0 if undefined
+  const roll = data.roll  0;            // Default to 0 if undefined
+  const ethanol = data.ethanol  0;      // Default to 0 if undefined
+  const force = data.force  0;          // Default to 0 if undefined
+
+  // Calculate derived value (e.g., roll / 12) with safety check
+  let derivedValue = 0;
+  if (roll !== 0) {
+    derivedValue = roll / 12;
+  }
+
+  // Append the validated and calculated data to the sheet
+  try {
+    sheet.appendRow([
+      new Date(),       // Timestamp
+      latitude,         // Latitude
+      longitude,        // Longitude
+      speed,            // Speed in km/h
+      roll,             // Roll (MPU6050 angle Z)
+      ethanol,          // Ethanol level (sensor reading)
+      force,            // Force sensor reading
+      derivedValue      // Derived value: roll / 12
+    ]);
+  } catch (error) {
+    console.error("Error appending data to the sheet: " + error);
+    return ContentService.createTextOutput("Error: Unable to add data").setMimeType(ContentService.MimeType.TEXT);
+  }
+
+  // Return a success message
+  return ContentService.createTextOutput("Data added successfully!")
+    .setMimeType(ContentService.MimeType.TEXT);
+}
