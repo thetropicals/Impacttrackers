@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vehicle Information Lookup</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="background-image">
+    <div class="container">
+      <h1 class="main-title">IMPACT TRACKERS</h1>
+      <div class="search-bar">
+        <input type="text" id="vehicleNumber" placeholder="Enter vehicle number ">
+        
+        <!-- Date Picker for selecting the date -->
+        <input type="date" id="datePicker" placeholder="Select date">
+
+        <!-- Time Input for entering the hour and minute -->
+        <input type="time" id="timePicker" placeholder="Select time" step="1">
+  
+        
+        
+
+        <button onclick="searchVehicle()"><i class="fas fa-search"></i></button>
+      </div>
+      <div id="results" class="results-section" style="display: none;">
+        <h2>Vehicle Data - 10 Entries After Specified Date & Time</h2>
+        <div class="table-container" id="tableContainer">
+          <!-- Data will be injected here by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
