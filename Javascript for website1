@@ -1,0 +1,100 @@
+async function searchVehicle() {
+  const vehicleNumber = document.getElementById("vehicleNumber").value.trim();
+  const date = document.getElementById("datePicker").value;
+  const time = document.getElementById("timePicker").value;
+
+  if (vehicleNumber === "TN11A1111" && date && time) {
+    document.getElementById("results").style.display = "block";
+    const dateTimeInput = `${date}T${time}`;
+    await fetchGoogleSheetData(dateTimeInput);
+
+    // Scroll to the results section
+    document.getElementById("results").scrollIntoView({ behavior: "smooth" });
+  } else {
+    alert("Please enter 'TN11A1111' as the vehicle number and provide both date and time.");
+  }
+}
+
+async function fetchGoogleSheetData(dateTimeInput) {
+  try {
+    const url =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKelocrOdML7NnL4cPkkyNQzAbOIXyEXXBkNf5Qv6j5_rVoMgTPEBOROlmcYek-EcwPEHYUti3gCWn/pub?output=csv";
+    const response = await fetch(url);
+    const data = await response.text();
+
+    const rows = data.split("\n").slice(1);
+    const filteredRows = filterRowsByDateTime(rows, dateTimeInput);
+
+    const tableContainer = document.getElementById("tableContainer");
+    tableContainer.innerHTML = generateTable(filteredRows);
+  } catch (error) {
+    console.error("Error fetching Google Sheets data:", error);
+  }
+}
+
+function filterRowsByDateTime(rows, dateTimeInput) {
+  const targetDate = new Date(dateTimeInput);
+
+  let matchingRows = [];
+  for (let row of rows) {
+    const columns = row.split(",");
+    const rowDate = new Date(
+      columns[0].replace(
+        /(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})/,
+        "$3-$2-$1T$4:$5:$6"
+      )
+    );
+
+    if (rowDate >= targetDate) {
+      matchingRows.push(row);
+      if (matchingRows.length === 10) break;
+    }
+  }
+  return matchingRows;
+}
+
+function generateTable(rows) {
+  if (rows.length === 0) {
+    return "<p>No entries found for the specified date and time.</p>";
+  }
+
+  let tableHtml = `<table>
+      <tr>
+        <th>Date</th>
+        <th>Time</th>
+        <th>Latitude</th>
+        <th>Longitude</th>
+        <th>Speed</th>
+        <th>Ethanol Level</th>
+        <th>Steering Wheel Angle</th>
+        <th>Force Sensor</th>
+        <th>Ratio Value</th>
+      </tr>`;
+
+  rows.forEach((row) => {
+    const columns = row.split(",");
+    const [date, time] = columns[0] ? columns[0].split(" ") : ["N/A", "N/A"];
+    const latitude = columns[1] || "N/A";
+    const longitude = columns[2] || "N/A";
+    const speed = columns[3] || "N/A";
+    const angle = columns[4] || "N/A";
+    const alcoholLevel = columns[5] || "N/A";
+    const forceSensor = columns[6] || "N/A";
+    const ratioValue = columns[7] || "N/A";
+
+    tableHtml += `<tr>
+        <td>${date}</td>
+        <td>${time}</td>
+        <td>${latitude}</td>
+        <td>${longitude}</td>
+        <td>${speed}</td>
+        <td>${angle}</td>
+        <td>${alcoholLevel}</td>
+        <td>${forceSensor}</td>
+        <td>${ratioValue}</td>
+      </tr>`;
+  });
+
+  tableHtml += "</table>";
+  return tableHtml;
+}
