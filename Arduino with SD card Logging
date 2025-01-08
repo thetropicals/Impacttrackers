@@ -1,0 +1,137 @@
+#include "Wire.h"
+#include <TinyGPSPlus.h>
+#include <MPU6050_light.h>
+#include <SD.h>
+#include <SPI.h>
+
+#define SENSOR_ANALOG_PIN A1
+
+TinyGPSPlus gps;
+MPU6050 mpu(Wire);
+const int vibrationSensorPin = 4;
+const int pinCS = 10;
+
+double lat1 = 0.0, longt1 = 0.0;
+float speed_kmph = 0.0;
+int day, month, year, hour, minute, secondy;
+unsigned long gpsUpdateTime = 0, mpuUpdateTime = 0;
+
+// GPS Serial Communication
+#include <SoftwareSerial.h>
+SoftwareSerial gpsSerial(2, 3); // RX, TX for GPS (connect TX of GPS to pin 2)
+
+// Global SD file object
+File testFile;
+
+void setup() {
+  Wire.begin();
+  pinMode(pinCS, OUTPUT);
+  pinMode(vibrationSensorPin, INPUT);
+  Serial.begin(1200);          // Serial for ESP32 communication
+  gpsSerial.begin(4800);       // Serial for GPS communication
+  mpu.begin();
+  mpu.calcGyroOffsets();       // Calibrate MPU6050
+
+  // Initialize SD card
+  if (!SD.begin(pinCS)) {
+    Serial.println("SD card initialization failed!");
+    return;
+  }
+  Serial.println("SD card initialized successfully!");
+
+  // Create and open the file
+  testFile = SD.open("test.txt", FILE_WRITE);
+  if (!testFile) {
+    Serial.println("Failed to open test.txt for writing.");
+    return;
+  }
+  Serial.println("test.txt file opened successfully!");
+
+  Serial.println("Arduino ready to send data.");
+}
+
+void loop() {
+  int vibrationState = digitalRead(vibrationSensorPin);
+
+  // Read and update GPS data every 500 ms
+  if (millis() - gpsUpdateTime > 500) {
+    gpsUpdateTime = millis();
+    while (gpsSerial.available() > 0) {
+      gps.encode(gpsSerial.read());
+      if (gps.location.isUpdated()) {
+        lat1 = gps.location.lat();
+        longt1 = gps.location.lng();
+        speed_kmph = gps.speed.kmph();
+
+        // Convert UTC to IST (GMT+5:30)
+        hour = gps.time.hour() + 5;
+        minute = gps.time.minute() + 30;
+        secondy = gps.time.second();
+        if (minute >= 60) {
+          minute -= 60;
+          hour++;
+        }
+        if (hour >= 24) {
+          hour -= 24;
+        }
+      }
+    }
+  }
+
+  // Read and update MPU6050 data every 10 ms
+  if (millis() - mpuUpdateTime > 10) {
+    mpuUpdateTime = millis();
+    mpu.update();
+  }
+
+  // Write data to SD card and Serial every 100 ms
+  if (millis() % 100 == 0) {
+    int sensorAnalogValue = analogRead(SENSOR_ANALOG_PIN);
+
+    // Send formatted data to Serial
+    Serial.print("<");
+    Serial.print(lat1, 6);
+    Serial.print(",");
+    Serial.print(longt1, 6);
+    Serial.print(",");
+    Serial.print(hour);
+    Serial.print(",");
+    Serial.print(minute);
+    Serial.print(",");
+    Serial.print(secondy);
+    Serial.print(",");
+    Serial.print(speed_kmph, 2);
+    Serial.print(",");
+    Serial.print(mpu.getAngleZ(), 2);
+    Serial.print(",");
+    Serial.print(sensorAnalogValue);
+    Serial.print(",");
+    Serial.print(vibrationState);
+    Serial.println(">");
+
+    // Write formatted data to SD card
+    if (testFile) {
+      testFile.print(lat1, 6);
+      testFile.print(",");
+      testFile.print(longt1, 6);
+      testFile.print(",");
+      testFile.print(hour);
+      testFile.print(",");
+      testFile.print(minute);
+      testFile.print(",");
+      testFile.print(secondy);
+      testFile.print(",");
+      testFile.print(speed_kmph, 2);
+      testFile.print(",");
+      testFile.print(mpu.getAngleZ(), 2);
+      testFile.print(",");
+      testFile.print(sensorAnalogValue);
+      testFile.print(",");
+      testFile.println(vibrationState);
+      testFile.flush(); // Ensure data is written to the SD card
+      Serial.println("Data written to test.txt.");
+    } else {
+      Serial.println("Failed to write to test.txt.");
+    }
+  }
+}
