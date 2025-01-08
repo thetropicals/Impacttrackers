@@ -1,0 +1,67 @@
+#include <SPI.h>
+#include <SD.h>
+
+#define SD_CS_PIN 5      // Chip Select (CS) or Slave Select (SS)
+#define SD_MOSI_PIN 23   // Master Out Slave In (MOSI)
+#define SD_MISO_PIN 19   // Master In Slave Out (MISO)
+#define SD_SCK_PIN 18    // Serial Clock (SCK)
+
+#define On_Board_LED 2
+
+File myFile;
+
+void setup() {
+  Serial.begin(115200); // Initialize serial for debugging
+  pinMode(On_Board_LED, OUTPUT);
+
+  // Initialize SD card
+  Serial.println("Initializing SD card...");
+  if (!SD.begin(SD_CS_PIN)) {
+    Serial.println("SD card initialization failed!");
+    while (1); // Stop program if SD card initialization fails
+  }
+  Serial.println("SD card initialized.");
+}
+
+void loop() {
+  delay(400);
+
+  // Open file for writing
+  myFile = SD.open("/test.txt", FILE_WRITE);
+  if (!myFile) {
+    Serial.println("Failed to open file for writing.");
+    return; // Exit loop if file open fails
+  }
+
+  for (int i = 1; i <= 10; i++) {
+    int latitude = i;
+    int longitude = i + 1;
+    int hour = i + 2;
+    int minute = i + 3;
+    int second = i + 4;
+    int speed = i + 5;
+    int roll = i + 6;
+    int ethanol = i + 7;
+    int force = i + 8;
+
+    // Print values to Serial Monitor
+    Serial.printf("Data Row %d: %d, %d, %d, %d, %d, %d, %d, %d, %d\n",
+                  i, latitude, longitude, hour, minute, second, speed, roll, ethanol, force);
+
+    // Write values to SD card
+    myFile.printf("%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+                  latitude, longitude, hour, minute, second, speed, roll, ethanol, force);
+
+    digitalWrite(On_Board_LED, HIGH);  // Turn on LED
+    delay(100);
+    digitalWrite(On_Board_LED, LOW);   // Turn off LED
+    delay(100);
+  }
+
+  myFile.flush();  // Ensure all data is written to the SD card
+  myFile.close();  // Close the file
+  Serial.println("Data written to test.txt successfully.");
+
+  // Pause for demonstration
+  delay(5000);
+}
